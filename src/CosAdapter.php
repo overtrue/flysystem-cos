@@ -62,7 +62,6 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
                 'credentials' => \compact('secretId', 'secretKey'),
             ], $optional);
 
-        var_dump($this->config);
         $this->setPathPrefix($this->config['cdn'] ?? '');
     }
 
@@ -151,7 +150,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      * @param string $contents
      * @param Config $config
      *
-     * @return array|bool
+     * @return array|false
      */
     public function write($path, $contents, Config $config)
     {
@@ -165,7 +164,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      * @param resource $resource
      * @param Config   $config
      *
-     * @return array|bool
+     * @return array|false
      */
     public function writeStream($path, $resource, Config $config)
     {
@@ -261,7 +260,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             return ['Key' => $item['Key']];
         }, (array) $response['Contents']);
 
-        return (bool) $this->getClient()->deleteObjects([
+        return !!$this->getClient()->deleteObjects([
             'Bucket' => $this->getBucket(),
             'Objects' => $keys,
         ]);
@@ -286,7 +285,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      * @param string $path
      * @param string $visibility
      *
-     * @return bool
+     * @return array|false
      */
     public function setVisibility($path, $visibility)
     {
