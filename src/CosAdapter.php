@@ -7,17 +7,8 @@
  * with this source code in the file LICENSE.
  */
 
-/*
- * This file is part of the overtrue/flysystem-cos.
- * (c) overtrue <i@overtrue.me>
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 namespace Overtrue\Flysystem\Cos;
 
-use Carbon\Carbon;
-use DateTimeInterface;
 use GuzzleHttp\Client as HttpClient;
 use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\Adapter\CanOverwriteFiles;
@@ -58,9 +49,9 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     public function __construct($secretId, $secretKey, $bucket, $region, array $optional = [])
     {
         $this->config = array_merge(
-                \compact('region', 'bucket'), [
-                'credentials' => \compact('secretId', 'secretKey'),
-            ], $optional);
+            \compact('region', 'bucket'), [
+            'credentials' => \compact('secretId', 'secretKey'),
+        ], $optional);
 
         $this->setPathPrefix($this->config['cdn'] ?? '');
     }
@@ -122,18 +113,18 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param string             $path
-     * @param \DateTimeInterface $expiration
-     * @param array              $options
+     * @param string     $path
+     * @param string|int $expiration
+     * @param array      $options
      *
      * @return string
      */
-    public function getTemporaryUrl($path, DateTimeInterface $expiration, array $options = [])
+    public function getTemporaryUrl($path, $expiration, array $options = [])
     {
         $options = array_merge($options, ['Scheme' => $this->config['scheme'] ?? 'http']);
 
         $objectUrl = $this->getClient()->getObjectUrl(
-            $this->getBucket(), $path, $expiration->format('c'), $options
+            $this->getBucket(), $path, date('c', !is_numeric($expiration) ? \strtotime($expiration) : $expiration), $options
         );
 
         $url = parse_url($objectUrl);
@@ -260,7 +251,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             return ['Key' => $item['Key']];
         }, (array) $response['Contents']);
 
-        return !!$this->getClient()->deleteObjects([
+        return (bool) $this->getClient()->deleteObjects([
             'Bucket' => $this->getBucket(),
             'Objects' => $keys,
         ]);
@@ -320,7 +311,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         try {
             if ($this->config['read_from_cdn']) {
                 $response = $this->getHttpClient()
-                    ->get($this->getTemporaryUrl($path, Carbon::now()->addMinutes(5)))
+                    ->get($this->getTemporaryUrl($path, date('+5 min')))
                     ->getBody()
                     ->getContents();
             } else {
@@ -383,7 +374,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     public function readStream($path)
     {
         try {
-            $temporaryUrl = $this->getTemporaryUrl($path, Carbon::now()->addMinutes(5));
+            $temporaryUrl = $this->getTemporaryUrl($path, \strtotime('+5 min'));
 
             $stream = $this->getHttpClient()
                 ->get($temporaryUrl, ['stream' => true])
@@ -503,7 +494,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             'dirname' => \strval($path['dirname']),
             'basename' => \strval($path['basename']),
             'filename' => strval($path['filename']),
-            'timestamp' => Carbon::parse($content['LastModified'])->getTimestamp(),
+            'timestamp' => \strtotime($content['LastModified']),
             'extension' => $path['extension'] ?? '',
         ];
     }
