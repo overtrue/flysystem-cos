@@ -123,8 +123,10 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         $options = array_merge($options, ['Scheme' => $this->config['scheme'] ?? 'http']);
 
+        $expiration = date('c', !\is_numeric($expiration) ? \strtotime($expiration) : \intval($expiration));
+
         $objectUrl = $this->getClient()->getObjectUrl(
-            $this->getBucket(), $path, date('c', !is_numeric($expiration) ? \strtotime($expiration) : $expiration), $options
+            $this->getBucket(), $path, $expiration, $options
         );
 
         $url = parse_url($objectUrl);
