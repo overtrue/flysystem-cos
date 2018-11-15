@@ -1,4 +1,11 @@
-<?php /** @noinspection ALL */
+<?php
+
+/*
+ * This file is part of the overtrue/flysystem-cos.
+ * (c) overtrue <i@overtrue.me>
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.
+ */
 
 /*
  * This file is part of the overtrue/flysystem-cos.
@@ -107,7 +114,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         }
 
         $options = [
-            'Scheme' => $this->config['scheme'] ?? 'http'
+            'Scheme' => $this->config['scheme'] ?? 'http',
         ];
 
         return $this->getClient()->getObjectUrl(
@@ -221,7 +228,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         $source = $this->getSourcePath($path);
 
-        return !!$this->getClient()->copy($this->getBucket(), $to, $source);
+        return (bool) $this->getClient()->copy($this->getBucket(), $to, $source);
     }
 
     /**
@@ -231,7 +238,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function delete($path)
     {
-        return !!$this->getClient()->deleteObject([
+        return (bool) $this->getClient()->deleteObject([
             'Bucket' => $this->getBucket(),
             'Key' => $path,
         ]);
@@ -252,9 +259,9 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
         $keys = array_map(function ($item) {
             return ['Key' => $item['Key']];
-        }, (array)$response['Contents']);
+        }, (array) $response['Contents']);
 
-        return !!$this->getClient()->deleteObjects([
+        return (bool) $this->getClient()->deleteObjects([
             'Bucket' => $this->getBucket(),
             'Objects' => $keys,
         ]);
@@ -270,7 +277,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         return $this->getClient()->putObject([
             'Bucket' => $this->getBucket(),
-            'Key' => $dirname . '/',
+            'Key' => $dirname.'/',
             'Body' => '',
         ]);
     }
@@ -283,7 +290,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function setVisibility($path, $visibility)
     {
-        return !!$this->getClient()->PutObjectAcl([
+        return (bool) $this->getClient()->PutObjectAcl([
             'Bucket' => $this->getBucket(),
             'Key' => $path,
             'ACL' => $this->normalizeVisibility($visibility),
@@ -298,7 +305,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     public function has($path)
     {
         try {
-            return !!$this->getMetadata($path);
+            return (bool) $this->getMetadata($path);
         } catch (NoSuchKeyException $e) {
             return false;
         }
@@ -324,7 +331,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
                 ])->get('Body');
             }
 
-            return ['contents' => (string)$response];
+            return ['contents' => (string) $response];
         } catch (NoSuchKeyException $e) {
             return null;
         } catch (\GuzzleHttp\Exception\ClientException $e) {
@@ -404,7 +411,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
         $response = $this->listObjects($directory, $recursive);
 
-        foreach ((array)$response->get('Contents') as $content) {
+        foreach ((array) $response->get('Contents') as $content) {
             $list[] = $this->normalizeFileInfo($content);
         }
 
@@ -473,7 +480,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         ]);
 
         foreach ($meta->get('Grants') as $grant) {
-            if ($grant['Permission'] === 'READ' && strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers') !== false) {
+            if ('READ' === $grant['Permission'] && false !== strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
                 return ['visibility' => AdapterInterface::VISIBILITY_PUBLIC];
             }
         }
@@ -491,7 +498,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         $path = pathinfo($content['Key']);
 
         return [
-            'type' => substr($content['Key'], -1) === '/' ? 'dir' : 'file',
+            'type' => '/' === substr($content['Key'], -1) ? 'dir' : 'file',
             'path' => $content['Key'],
             'size' => \intval($content['Size']),
             'dirname' => \strval($path['dirname']),
@@ -512,7 +519,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         return $this->getClient()->listObjects([
             'Bucket' => $this->getBucket(),
-            'Prefix' => ((string)$directory === '') ? '' : ($directory . '/'),
+            'Prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
             'Delimiter' => $recursive ? '' : '/',
         ]);
     }
