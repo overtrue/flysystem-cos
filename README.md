@@ -29,12 +29,22 @@ $ composer require overtrue/flysystem-cos -vvv
 use League\Flysystem\Filesystem;
 use Overtrue\Flysystem\Cos\CosAdapter;
 
-$secretId = 'AKIDsiQzQla780mQxLLU2GJC6xxxxxxxxxx';
-$secretKey = 'b0GMH2c2NXWKxPhy7xxxxxxxxxxxx';
-$region = 'ap-guangzhou';
-$bucket = 'overtrue-123456789';
+$config = [
+    'region'      => 'ap-guangzhou',
+    'credentials' => [
+        'appId'      => 1234567889, // 域名中数字部分
+        'secretId'   => 'AKIDS5jNr5NNygGxxxxxxxxxxxxxxxxxx',
+        'secretKey'  => 'NfszEWmyDqGmao0a4XS8wxxxxxxxxxxxx',
+    ],
+    'bucket'          => 'test',
+    'timeout'         => 60,
+    'connect_timeout' => 60,
+    'cdn'             => '您的 CDN 域名',
+    'scheme'          => 'https',
+    'read_from_cdn'   => false,
+];
 
-$adapter = new CosAdapter($secretId, $secretKey, $bucket, $region);
+$adapter = new CosAdapter($config);
 
 $flysystem = new League\Flysystem\Filesystem($adapter);
 

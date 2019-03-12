@@ -40,18 +40,11 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     /**
      * CosAdapter constructor.
      *
-     * @param string $secretId
-     * @param string $secretKey
-     * @param string $bucket
-     * @param string $region
-     * @param array  $optional
+     * @param array $config
      */
-    public function __construct($secretId, $secretKey, $bucket, $region, array $optional = [])
+    public function __construct(array $config = [])
     {
-        $this->config = array_merge(
-            \compact('region', 'bucket'), [
-            'credentials' => \compact('secretId', 'secretKey'),
-        ], $optional);
+        $this->config = $config;
 
         $this->setPathPrefix($this->config['cdn'] ?? '');
     }
