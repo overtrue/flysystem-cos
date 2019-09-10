@@ -421,7 +421,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         return $this->getClient()->headObject([
             'Bucket' => $this->getBucket(),
             'Key' => $path,
-        ])->toArray();
+        ]);
     }
 
     /**
