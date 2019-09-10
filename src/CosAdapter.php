@@ -46,7 +46,9 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         $this->config = $config;
 
-        $this->setPathPrefix($this->config['cdn'] ?? '');
+        if (!empty($this->config['cdn'])) {
+            $this->setPathPrefix($this->config['cdn']);
+        }
     }
 
     /**
@@ -80,8 +82,8 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function getSourcePath($path)
     {
-        return sprintf('%s-%s.cos.%s.myqcloud.com/%s',
-            $this->getBucket(), $this->getAppId(), $this->getRegion(), $path
+        return sprintf('%s.cos.%s.myqcloud.com/%s',
+            $this->getBucket(), $this->getRegion(), $path
         );
     }
 
@@ -211,7 +213,11 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function copy($path, $to)
     {
-        $source = $this->getSourcePath($path);
+        $source = [
+            'Region' => $this->getRegion(),
+            'Bucket' => $this->getBucket(),
+            'Key' => $path,
+        ];
 
         return (bool) $this->getClient()->copy($this->getBucket(), $to, $source);
     }
@@ -291,7 +297,9 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         try {
             return (bool) $this->getMetadata($path);
-        } catch (NoSuchKeyException $e) {
+        } catch (\Throwable $e) {
+            return false;
+        } catch (\Exception $e) {
             return false;
         }
     }
@@ -313,13 +321,13 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
                 $response = $this->getClient()->getObject([
                     'Bucket' => $this->getBucket(),
                     'Key' => $path,
-                ])->get('Body');
+                ])['Body'];
             }
 
             return ['contents' => (string) $response];
-        } catch (NoSuchKeyException $e) {
+        } catch (\Throwable $e) {
             return null;
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
+        } catch (\Exception $e) {
             return null;
         }
     }
@@ -377,9 +385,9 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
                 ->detach();
 
             return ['stream' => $stream];
-        } catch (NoSuchKeyException $e) {
+        } catch (\Throwable $e) {
             return false;
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
+        } catch (\Exception $e) {
             return false;
         }
     }
