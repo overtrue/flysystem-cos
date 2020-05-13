@@ -126,7 +126,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
         $url = parse_url($objectUrl);
 
-        if ($this->config['cdn']) {
+        if (!empty($this->config['cdn'])) {
             return \sprintf('%s/%s?%s', \rtrim($this->config['cdn'], '/'), urldecode($url['path']), $url['query']);
         }
 
