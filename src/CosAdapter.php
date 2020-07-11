@@ -409,7 +409,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
         $response = $this->listObjects($directory, $recursive);
 
-        foreach ((array) $response->get('Contents') as $content) {
+        foreach ((array) $response['Contents'] as $content) {
             $list[] = $this->normalizeFileInfo($content);
         }
 
