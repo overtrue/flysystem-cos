@@ -5,7 +5,7 @@
         "php": ">=7.0",
         "league/flysystem": "^1.0",
         "qcloud/cos-sdk-v5": "^2.0.0",
-        "guzzlehttp/guzzle": "^6.3"
+        "guzzlehttp/guzzle": "^6.3|^7.0"
     },
     "require-dev": {
         "php": ">=7.1",
