@@ -149,7 +149,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         $options = $this->getUploadOptions($config);
 
-        return $this->getClient()->upload($this->getBucket(), $path, $contents, $options);
+        return $this->getClient()->upload($this->getBucket(), $path, $contents, $options['params']);
     }
 
     /**
@@ -167,7 +167,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             $this->getBucket(),
             $path,
             stream_get_contents($resource, -1, 0),
-            $options
+            $options['params']
         );
     }
 
@@ -529,10 +529,10 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     protected function getUploadOptions(Config $config)
     {
-        $options = [];
+        $options = ['params' => []];
 
         if ($config->has('params')) {
-            $options['params'] = $config->get('params');
+            $options['params'] = (array) $config->get('params');
         }
 
         if ($config->has('visibility')) {
