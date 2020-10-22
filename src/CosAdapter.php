@@ -532,11 +532,11 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         $options = [];
 
         if ($config->has('params')) {
-            $options['params'] = $config['params'];
+            $options['params'] = $config->get('params');
         }
 
         if ($config->has('visibility')) {
-            $options['params']['ACL'] = $this->normalizeVisibility($config['visibility']);
+            $options['params']['ACL'] = $this->normalizeVisibility($config->get('visibility'));
         }
 
         return $options;
