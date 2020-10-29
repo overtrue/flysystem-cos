@@ -15,7 +15,7 @@
 
 ## Requirement
 
-* PHP >= 7.0
+* PHP >= 7.4
 
 ## Installation
 
@@ -29,12 +29,18 @@ $ composer require overtrue/flysystem-cos -vvv
 use League\Flysystem\Filesystem;
 use Overtrue\Flysystem\Cos\CosAdapter;
 
-$secretId = 'AKIDsiQzQla780mQxLLU2GJC6xxxxxxxxxx';
-$secretKey = 'b0GMH2c2NXWKxPhy7xxxxxxxxxxxx';
-$region = 'ap-guangzhou';
-$bucket = 'overtrue-123456789';
+$config = [
+    // 必填，app_id、secret_id、secret_key 
+    // 可在个人秘钥管理页查看：https://console.cloud.tencent.com/capi
+    'app_id' => 10020201024, 
+    'secret_id' => 'AKIDsiQzQla780mQxLLU2GJCxxxxxxxxxxx', 
+    'secret_key' => 'b0GMH2c2NXWKxPhy77xhHgwxxxxxxxxxxx',
 
-$adapter = new CosAdapter($secretId, $secretKey, $bucket, $region);
+    'region' => 'ap-guangzhou', 
+    'bucket' => 'example',
+];
+
+$adapter = new CosAdapter($config);
 
 $flysystem = new League\Flysystem\Filesystem($adapter);
 
@@ -61,15 +67,13 @@ bool $flysystem->delete('file.md');
 
 bool $flysystem->has('file.md');
 
-string|false $flysystem->read('file.md');
+string|mixed|false $flysystem->read('file.md');
 
 array $flysystem->listContents();
 
-array $flysystem->getMetadata('file.md');
+array|false $flysystem->getMetadata('file.md');
 
 int $flysystem->getSize('file.md');
-
-string $flysystem->getAdapter()->getUrl('file.md'); 
 
 string $flysystem->getMimetype('file.md');
 

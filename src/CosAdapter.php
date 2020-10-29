@@ -1,36 +1,25 @@
 <?php
 
-/*
- * This file is part of the overtrue/flysystem-cos.
- * (c) overtrue <i@overtrue.me>
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 namespace Overtrue\Flysystem\Cos;
 
-use GuzzleHttp\Client as HttpClient;
 use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\Adapter\CanOverwriteFiles;
 use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
-use Qcloud\Cos\Client;
-use Qcloud\Cos\Exception\NoSuchKeyException;
+use Overtrue\CosClient\ObjectClient;
+use Overtrue\CosClient\BucketClient;
 
-/**
- * Class CosAdapter.
- */
 class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 {
     /**
-     * @var Client
+     * @var \Overtrue\CosClient\ObjectClient|null
      */
-    protected $client;
+    protected ?ObjectClient $objectClient;
 
     /**
-     * @var \GuzzleHttp\Client
+     * @var \Overtrue\CosClient\BucketClient|null
      */
-    protected $httpClient;
+    protected ?BucketClient $bucketClient;
 
     /**
      * @var array
@@ -40,155 +29,86 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     /**
      * CosAdapter constructor.
      *
-     * @param string $secretId
-     * @param string $secretKey
-     * @param string $bucket
-     * @param string $region
-     * @param array  $optional
+     * @param  array  $config
+     * @param  array  $optional
      */
-    public function __construct($secretId, $secretKey, $bucket, $region, array $optional = [])
+    public function __construct(array $config, array $optional = [])
     {
-        $this->config = array_merge(
-            \compact('region', 'bucket'), [
-            'credentials' => \compact('secretId', 'secretKey'),
-        ], $optional);
+        $this->config = \array_merge([
+            'bucket' => null,
+            'app_id' => null,
+            'region' => 'ap-guangzhou',
+        ], $config);
 
-        $this->setPathPrefix($this->config['cdn'] ?? '');
-    }
-
-    /**
-     * @return string
-     */
-    public function getBucket()
-    {
-        return $this->config['bucket'];
-    }
-
-    /**
-     * @return string
-     */
-    public function getAppId()
-    {
-        return $this->config['credentials']['appId'] ?? null;
-    }
-
-    /**
-     * @return string
-     */
-    public function getRegion()
-    {
-        return $this->config['region'] ?? '';
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return string
-     */
-    public function getSourcePath($path)
-    {
-        return sprintf('%s-%s.cos.%s.myqcloud.com/%s',
-            $this->getBucket(), $this->getAppId(), $this->getRegion(), $path
-        );
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return string
-     */
-    public function getUrl($path)
-    {
-        if (!empty($this->config['cdn'])) {
-            return $this->applyPathPrefix($path);
+        if (!empty($config['prefix'])) {
+            $this->setPathPrefix($config['prefix']);
         }
-
-        $options = [
-            'Scheme' => $this->config['scheme'] ?? 'http',
-        ];
-
-        return $this->getClient()->getObjectUrl(
-            $this->getBucket(), $path, null, $options
-        );
     }
 
     /**
-     * @param string     $path
-     * @param string|int $expiration
-     * @param array      $options
+     * @param  string  $path
      *
-     * @return string
+     * @return bool
      */
-    public function getTemporaryUrl($path, $expiration, array $options = [])
+    public function has($path)
     {
-        $options = array_merge($options, ['Scheme' => $this->config['scheme'] ?? 'http']);
-
-        $expiration = date('c', !\is_numeric($expiration) ? \strtotime($expiration) : \intval($expiration));
-
-        $objectUrl = $this->getClient()->getObjectUrl(
-            $this->getBucket(), $path, $expiration, $options
-        );
-
-        $url = parse_url($objectUrl);
-
-        if ($this->config['cdn']) {
-            return \sprintf('%s/%s?%s', \rtrim($this->config['cdn'], '/'), urldecode($url['path']), $url['query']);
-        }
-
-        return $objectUrl;
+        return !empty($this->getMetadata($path));
     }
 
     /**
-     * @param string $path
-     * @param string $contents
-     * @param Config $config
-     *
-     * @return array|false
+     * @inheritDoc
      */
     public function write($path, $contents, Config $config)
     {
-        $options = $this->getUploadOptions($config);
+        $response = $this->getObjectClient()->putObject($this->applyPathPrefix($path), \strval($contents), $config->get('headers', []));
 
-        return $this->getClient()->upload($this->getBucket(), $path, $contents, $options);
+        if (!$response->isSuccessful()) {
+            return false;
+        }
+
+        $result = [
+            'contents' => $contents,
+            'type' => $response->getHeader('Content-Type'),
+            'size' => $response->getHeader('Content-Length'),
+            'path' => $this->applyPathPrefix($path),
+        ];
+
+        if ($visibility = $config->get('visibility')) {
+            $result['visibility'] = $visibility;
+            $this->setVisibility($path, $visibility);
+        }
+
+        return $result;
     }
 
     /**
-     * @param string   $path
-     * @param resource $resource
-     * @param Config   $config
-     *
-     * @return array|false
+     * @inheritDoc
      */
     public function writeStream($path, $resource, Config $config)
     {
-        $options = $this->getUploadOptions($config);
-
-        return $this->getClient()->upload(
-            $this->getBucket(),
-            $path,
-            stream_get_contents($resource, -1, 0),
-            $options
-        );
+        return $this->write($path, \stream_get_contents($resource), $config);
     }
 
     /**
-     * @param string $path
-     * @param string $contents
-     * @param Config $config
-     *
-     * @return array|bool
+     * @inheritDoc
      */
-    public function update($path, $contents, Config $config)
+    public function readStream($path)
     {
-        return $this->write($path, $contents, $config);
+        $response = $this->getObjectClient()->get(\urlencode($this->applyPathPrefix($path)), ['stream' => true]);
+
+        if ($response->isNotFound()) {
+            return false;
+        }
+
+        return [
+            'type' => 'file',
+            'path' => $path,
+            'stream' => $response->getBody()->detach(),
+        ];
     }
 
     /**
-     * @param string   $path
-     * @param resource $resource
-     * @param Config   $config
-     *
-     * @return array|bool
+     * @inheritDoc
      */
     public function updateStream($path, $resource, Config $config)
     {
@@ -196,54 +116,171 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param string $path
-     * @param string $to
-     *
-     * @return bool
+     * @inheritDoc
      */
-    public function rename($path, $to)
+    public function update($path, $contents, Config $config)
     {
-        $result = $this->copy($path, $to);
+        return $this->write($path, $contents, $config);
+    }
 
-        $this->delete($path);
+    /**
+     * @inheritDoc
+     */
+    public function read($path)
+    {
+        $path = $this->applyPathPrefix($path);
+        $response = $this->getObjectClient()->getObject($path);
+
+        return $response->isNotFound() ? false : ['type' => 'file', 'path' => $path, 'contents' => $response->getContents()];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function rename($path, $newpath)
+    {
+        $result = $this->copy($path, $newpath);
+
+        $this->delete($this->applyPathPrefix($path));
 
         return $result;
     }
 
     /**
-     * @param string $path
-     * @param string $to
-     *
-     * @return bool
+     * @inheritDoc
      */
-    public function copy($path, $to)
+    public function copy($path, $newpath)
     {
-        $source = $this->getSourcePath($path);
+        $location = $this->getSourcePath($this->applyPathPrefix($path));
+        $destination = $this->applyPathPrefix($newpath);
 
-        return (bool) $this->getClient()->copy($this->getBucket(), $to, $source);
+        try {
+            return $this->getObjectClient()->copyObject($destination, [
+                'x-cos-copy-source' => $location,
+            ])->isSuccessful();
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
-     * @param string $path
-     *
-     * @return bool
+     * @inheritDoc
      */
     public function delete($path)
     {
-        return (bool) $this->getClient()->deleteObject([
-            'Bucket' => $this->getBucket(),
-            'Key' => $path,
+        return $this->getObjectClient()->deleteObject($this->applyPathPrefix($path))->isSuccessful();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function listContents($directory = '', $recursive = false)
+    {
+        $list = [];
+
+        $response = $this->listObjects($this->applyPathPrefix($directory), $recursive);
+
+        foreach ($response['Contents'] ?? [] as $content) {
+            $list[] = $this->normalizeFileInfo($content);
+        }
+
+        return \array_filter($list);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMetadata($path)
+    {
+        try {
+            return $this->getObjectClient()->headObject($this->applyPathPrefix($path))->getHeaders();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getSize($path)
+    {
+        $meta = $this->getMetadata($path);
+
+        return isset($meta['Content-Length'][0]) ? ['size' => $meta['Content-Length'][0]] : false;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getMimetype($path)
+    {
+        $meta = $this->getMetadata($path);
+
+        return isset($meta['Content-Type'][0]) ? ['mimetype' => $meta['Content-Type'][0]] : false;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getTimestamp($path)
+    {
+        $meta = $this->getMetadata($path);
+
+        return isset($meta['Last-Modified'][0]) ? ['timestamp' => \strtotime($meta['Last-Modified'][0])] : false;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getVisibility($path)
+    {
+        $path = $this->applyPathPrefix($path);
+        $meta = $this->getObjectClient()->getObjectACL($path);
+
+        foreach ($meta['AccessControlPolicy']['AccessControlList']['Grant'] ?? [] as $grant) {
+            if ('READ' === $grant['Permission'] && false !== strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
+                return ['visibility' => AdapterInterface::VISIBILITY_PUBLIC];
+            }
+        }
+
+        return ['path' => $path, 'visibility' => AdapterInterface::VISIBILITY_PRIVATE];
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVisibility($path, $visibility)
+    {
+        return (bool) $this->getObjectClient()->putObjectACL($this->applyPathPrefix($path), [], [
+            'x-cos-acl' => $this->normalizeVisibility($visibility),
         ]);
     }
 
     /**
-     * @param string $dirname
+     * @param  string  $dirname
+     * @param  Config  $config
      *
-     * @return bool
+     * @return array|bool
+     */
+    public function createDir($dirname, Config $config)
+    {
+        $dirname = $this->applyPathPrefix($dirname);
+
+        try {
+            $this->getObjectClient()->putObject($dirname.'/', '');
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        return ['type' => 'dir', 'path' => $dirname];
+    }
+
+    /**
+     * @inheritDoc
      */
     public function deleteDir($dirname)
     {
-        $response = $this->listObjects($dirname);
+        $response = $this->listObjects($this->applyPathPrefix($dirname));
 
         if (empty($response['Contents'])) {
             return true;
@@ -251,237 +288,68 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
         $keys = array_map(function ($item) {
             return ['Key' => $item['Key']];
-        }, (array) $response['Contents']);
+        }, $response['Contents']);
 
-        return (bool) $this->getClient()->deleteObjects([
-            'Bucket' => $this->getBucket(),
-            'Objects' => $keys,
-        ]);
+        return $this->getObjectClient()->deleteObjects([
+            'Delete' => [
+                'Quiet' => 'false',
+                'Object' => $keys,
+            ],
+        ])->isSuccessful();
+    }
+
+    public function getObjectClient()
+    {
+        return $this->objectClient ?? $this->objectClient = new ObjectClient($this->config);
+    }
+
+    public function getBucketClient()
+    {
+        return $this->bucketClient ?? $this->bucketClient = new BucketClient($this->config);
     }
 
     /**
-     * @param string $dirname
-     * @param Config $config
-     *
-     * @return array|bool
-     */
-    public function createDir($dirname, Config $config)
-    {
-        return $this->getClient()->putObject([
-            'Bucket' => $this->getBucket(),
-            'Key' => $dirname.'/',
-            'Body' => '',
-        ]);
-    }
-
-    /**
-     * @param string $path
-     * @param string $visibility
-     *
-     * @return array|false
-     */
-    public function setVisibility($path, $visibility)
-    {
-        return (bool) $this->getClient()->PutObjectAcl([
-            'Bucket' => $this->getBucket(),
-            'Key' => $path,
-            'ACL' => $this->normalizeVisibility($visibility),
-        ]);
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return bool
-     */
-    public function has($path)
-    {
-        try {
-            return (bool) $this->getMetadata($path);
-        } catch (NoSuchKeyException $e) {
-            return false;
-        }
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function read($path)
-    {
-        try {
-            if ($this->config['read_from_cdn']) {
-                $response = $this->getHttpClient()
-                    ->get($this->getTemporaryUrl($path, date('+5 min')))
-                    ->getBody()
-                    ->getContents();
-            } else {
-                $response = $this->getClient()->getObject([
-                    'Bucket' => $this->getBucket(),
-                    'Key' => $path,
-                ])->get('Body');
-            }
-
-            return ['contents' => (string) $response];
-        } catch (NoSuchKeyException $e) {
-            return null;
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return null;
-        }
-    }
-
-    public function getClient()
-    {
-        return $this->client ?: $this->client = new Client($this->config);
-    }
-
-    /**
-     * @param \Qcloud\Cos\Client $client
+     * @param  \Overtrue\CosClient\ObjectClient  $objectClient
      *
      * @return $this
      */
-    public function setClient(Client $client)
+    public function setObjectClient(ObjectClient $objectClient)
     {
-        $this->client = $client;
+        $this->objectClient = $objectClient;
 
         return $this;
     }
 
     /**
-     * @return \GuzzleHttp\Client
-     */
-    public function getHttpClient()
-    {
-        return $this->httpClient ?: $this->httpClient = new HttpClient();
-    }
-
-    /**
-     * @param \GuzzleHttp\Client $client
+     * @param  \Overtrue\CosClient\BucketClient  $bucketClient
      *
      * @return $this
      */
-    public function setHttpClient(HttpClient $client)
+    public function setBucketClient(BucketClient $bucketClient)
     {
-        $this->httpClient = $client;
+        $this->bucketClient = $bucketClient;
 
         return $this;
     }
 
     /**
-     * @param string $path
+     * @param  string  $path
      *
-     * @return array|bool
+     * @return string
      */
-    public function readStream($path)
+    protected function getSourcePath(string $path)
     {
-        try {
-            $temporaryUrl = $this->getTemporaryUrl($path, \strtotime('+5 min'));
-
-            $stream = $this->getHttpClient()
-                ->get($temporaryUrl, ['stream' => true])
-                ->getBody()
-                ->detach();
-
-            return ['stream' => $stream];
-        } catch (NoSuchKeyException $e) {
-            return false;
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            return false;
-        }
+        return sprintf(
+            '%s-%s.cos.%s.myqcloud.com/%s',
+            $this->config['bucket'],
+            $this->config['app_id'],
+            $this->config['region'],
+            $path
+        );
     }
 
     /**
-     * @param string $directory
-     * @param bool   $recursive
-     *
-     * @return array|bool
-     */
-    public function listContents($directory = '', $recursive = false)
-    {
-        $list = [];
-
-        $response = $this->listObjects($directory, $recursive);
-
-        foreach ((array) $response->get('Contents') as $content) {
-            $list[] = $this->normalizeFileInfo($content);
-        }
-
-        return $list;
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function getMetadata($path)
-    {
-        return $this->getClient()->headObject([
-            'Bucket' => $this->getBucket(),
-            'Key' => $path,
-        ])->toArray();
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function getSize($path)
-    {
-        $meta = $this->getMetadata($path);
-
-        return isset($meta['ContentLength']) ? ['size' => $meta['ContentLength']] : false;
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function getMimetype($path)
-    {
-        $meta = $this->getMetadata($path);
-
-        return isset($meta['ContentType']) ? ['mimetype' => $meta['ContentType']] : false;
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function getTimestamp($path)
-    {
-        $meta = $this->getMetadata($path);
-
-        return isset($meta['LastModified']) ? ['timestamp' => strtotime($meta['LastModified'])] : false;
-    }
-
-    /**
-     * @param string $path
-     *
-     * @return array|bool
-     */
-    public function getVisibility($path)
-    {
-        $meta = $this->getClient()->getObjectAcl([
-            'Bucket' => $this->getBucket(),
-            'Key' => $path,
-        ]);
-
-        foreach ($meta->get('Grants') as $grant) {
-            if ('READ' === $grant['Permission'] && false !== strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
-                return ['visibility' => AdapterInterface::VISIBILITY_PUBLIC];
-            }
-        }
-
-        return ['visibility' => AdapterInterface::VISIBILITY_PRIVATE];
-    }
-
-    /**
-     * @param array $content
+     * @param  array  $content
      *
      * @return array
      */
@@ -493,7 +361,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             'type' => '/' === substr($content['Key'], -1) ? 'dir' : 'file',
             'path' => $content['Key'],
             'size' => \intval($content['Size']),
-            'dirname' => \strval($path['dirname']),
+            'dirname' => \strval($path['dirname'] === '.' ? '' : $path['dirname']),
             'basename' => \strval($path['basename']),
             'filename' => strval($path['filename']),
             'timestamp' => \strtotime($content['LastModified']),
@@ -502,38 +370,17 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param string $directory
-     * @param bool   $recursive
+     * @param  string  $directory
+     * @param  bool  $recursive
      *
      * @return mixed
      */
     protected function listObjects($directory = '', $recursive = false)
     {
-        return $this->getClient()->listObjects([
-            'Bucket' => $this->getBucket(),
-            'Prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
-            'Delimiter' => $recursive ? '' : '/',
-        ]);
-    }
-
-    /**
-     * @param Config $config
-     *
-     * @return array
-     */
-    protected function getUploadOptions(Config $config)
-    {
-        $options = [];
-
-        if ($config->has('params')) {
-            $options['params'] = $config['params'];
-        }
-
-        if ($config->has('visibility')) {
-            $options['params']['ACL'] = $this->normalizeVisibility($config['visibility']);
-        }
-
-        return $options;
+        return $this->getBucketClient()->getObjects([
+            'prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
+            'delimiter' => $recursive ? '' : '/',
+        ])['ListBucketResult'];
     }
 
     /**
@@ -543,12 +390,6 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     protected function normalizeVisibility($visibility)
     {
-        switch ($visibility) {
-            case AdapterInterface::VISIBILITY_PUBLIC:
-                $visibility = 'public-read';
-                break;
-        }
-
-        return $visibility;
+        return $visibility === AdapterInterface::VISIBILITY_PUBLIC ? 'public-read' : 'default';
     }
 }
