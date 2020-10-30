@@ -28,6 +28,8 @@ $ composer require overtrue/flysystem-cos -vvv
 ```php
 use League\Flysystem\Filesystem;
 use Overtrue\Flysystem\Cos\CosAdapter;
+use Overtrue\Flysystem\Cos\Plugins\FileSignedUrl;
+use Overtrue\Flysystem\Cos\Plugins\FileUrl;
 
 $config = [
     // 必填，app_id、secret_id、secret_key 
@@ -38,12 +40,21 @@ $config = [
 
     'region' => 'ap-guangzhou', 
     'bucket' => 'example',
+    
+    // 可选，如果 bucket 为私有访问请打开此项
+    _'signed_url' => false,_
+    
+    // 可选，使用 CDN 域名时指定生成的 URL host
+    'cdn' => 'https://youcdn.domain.com/',
 ];
 
 $adapter = new CosAdapter($config);
 
 $flysystem = new League\Flysystem\Filesystem($adapter);
 
+// 增加对象 URL 方法
+$flysystem->addPlugin(new FileUrl());
+$flysystem->addPlugin(new FileSignedUrl());
 ```
 ## API
 
@@ -78,11 +89,11 @@ int $flysystem->getSize('file.md');
 string $flysystem->getMimetype('file.md');
 
 int $flysystem->getTimestamp('file.md');
+
+// 插件提供的方法
+string $flysystem->getUrl('foo.md'); 
+string $flysystem->getSignedUrl('foo.md', '+30 minutes');
 ```
-
-## Plugins
-
-TODO
 
 ## License
 

@@ -2,6 +2,7 @@
 
 namespace Overtrue\Flysystem\Cos;
 
+use GuzzleHttp\Psr7\Uri;
 use League\Flysystem\Adapter\AbstractAdapter;
 use League\Flysystem\Adapter\CanOverwriteFiles;
 use League\Flysystem\AdapterInterface;
@@ -38,6 +39,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             'bucket' => null,
             'app_id' => null,
             'region' => 'ap-guangzhou',
+            'signed_url' => false,
         ], $config);
 
         if (!empty($config['prefix'])) {
@@ -296,6 +298,28 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
                 'Object' => $keys,
             ],
         ])->isSuccessful();
+    }
+
+    public function getUrl($path)
+    {
+        $path = $this->applyPathPrefix($path);
+
+        if (!empty($this->config['cdn'])) {
+            return \strval(new Uri(\sprintf('%s/%s', \rtrim($this->config['cdn'], '/'), $path)));
+        }
+
+        return $this->config['signed_url'] ? $this->getSignedUrl($path) : $this->getObjectClient()->getObjectUrl($path);
+    }
+
+    /**
+     * @param string $path
+     * @param  string  $expires
+     *
+     * @return string
+     */
+    public function getSignedUrl($path, $expires = '+60 minutes'): string
+    {
+        return $this->getObjectClient()->getObjectSignedUrl($this->applyPathPrefix($this->removePathPrefix($path)), $expires);
     }
 
     public function getObjectClient()
