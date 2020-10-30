@@ -12,6 +12,7 @@
 <a href="https://packagist.org/packages/overtrue/flysystem-cos"><img src="https://poser.pugx.org/overtrue/flysystem-cos/license" alt="License"></a>
 </p>
 
+🚨 当前为 v3 版本，v3 和 v2 在配置写法上有差异，升级请注意。
 
 ## Requirement
 
