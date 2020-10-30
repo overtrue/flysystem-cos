@@ -31,9 +31,8 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      * CosAdapter constructor.
      *
      * @param  array  $config
-     * @param  array  $optional
      */
-    public function __construct(array $config, array $optional = [])
+    public function __construct(array $config)
     {
         $this->config = \array_merge([
             'bucket' => null,
