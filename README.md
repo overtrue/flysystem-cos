@@ -42,7 +42,7 @@ $config = [
     'bucket' => 'example',
     
     // 可选，如果 bucket 为私有访问请打开此项
-    _'signed_url' => false,_
+    'signed_url' => false,
     
     // 可选，使用 CDN 域名时指定生成的 URL host
     'cdn' => 'https://youcdn.domain.com/',
