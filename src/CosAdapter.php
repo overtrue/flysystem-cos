@@ -34,12 +34,15 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function __construct(array $config)
     {
-        $this->config = \array_merge([
-            'bucket' => null,
-            'app_id' => null,
-            'region' => 'ap-guangzhou',
-            'signed_url' => false,
-        ], $config);
+        $this->config = \array_merge(
+            [
+                'bucket' => null,
+                'app_id' => null,
+                'region' => 'ap-guangzhou',
+                'signed_url' => false,
+            ],
+            $config
+        );
 
         if (!empty($config['prefix'])) {
             $this->setPathPrefix($config['prefix']);
@@ -156,9 +159,12 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         $destination = $this->applyPathPrefix($newpath);
 
         try {
-            return $this->getObjectClient()->copyObject($destination, [
-                'x-cos-copy-source' => $location,
-            ])->isSuccessful();
+            return $this->getObjectClient()->copyObject(
+                $destination,
+                [
+                    'x-cos-copy-source' => $location,
+                ]
+            )->isSuccessful();
         } catch (\Exception $e) {
             return false;
         }
@@ -180,6 +186,17 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         $list = [];
 
         $response = $this->listObjects($this->applyPathPrefix($directory), $recursive);
+
+        // 处理目录
+        foreach ($response['CommonPrefixes'] ?? [] as $prefix) {
+            $list[] = $this->normalizeFileInfo(
+                [
+                    'Key' => $prefix['Prefix'],
+                    'Size' => 0,
+                    'LastModified' => 0,
+                ]
+            );
+        }
 
         foreach ($response['Contents'] ?? [] as $content) {
             $list[] = $this->normalizeFileInfo($content);
@@ -252,9 +269,13 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     public function setVisibility($path, $visibility)
     {
-        return (bool) $this->getObjectClient()->putObjectACL($this->applyPathPrefix($path), [], [
-            'x-cos-acl' => $this->normalizeVisibility($visibility),
-        ]);
+        return (bool)$this->getObjectClient()->putObjectACL(
+            $this->applyPathPrefix($path),
+            [],
+            [
+                'x-cos-acl' => $this->normalizeVisibility($visibility),
+            ]
+        );
     }
 
     /**
@@ -287,16 +308,21 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             return true;
         }
 
-        $keys = array_map(function ($item) {
-            return ['Key' => $item['Key']];
-        }, $response['Contents']);
+        $keys = array_map(
+            function ($item) {
+                return ['Key' => $item['Key']];
+            },
+            $response['Contents']
+        );
 
-        return $this->getObjectClient()->deleteObjects([
-            'Delete' => [
-                'Quiet' => 'false',
-                'Object' => $keys,
-            ],
-        ])->isSuccessful();
+        return $this->getObjectClient()->deleteObjects(
+            [
+                'Delete' => [
+                    'Quiet' => 'false',
+                    'Object' => $keys,
+                ],
+            ]
+        )->isSuccessful();
     }
 
     public function getUrl($path)
@@ -311,7 +337,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param string $path
+     * @param  string  $path
      * @param  string  $expires
      *
      * @return string
@@ -394,21 +420,26 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
 
     /**
      * @param  string  $directory
-     * @param  bool  $recursive
+     * @param  bool    $recursive
      *
      * @return mixed
      */
     protected function listObjects($directory = '', $recursive = false)
     {
-        $result = $this->getBucketClient()->getObjects([
-            'prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
-            'delimiter' => $recursive ? '' : '/',
-        ])['ListBucketResult'];
+        $result = $this->getBucketClient()->getObjects(
+            [
+                'prefix' => ('' === (string)$directory) ? '' : ($directory.'/'),
+                'delimiter' => $recursive ? '' : '/',
+            ]
+        )['ListBucketResult'];
 
-        $result['Contents'] = $result['Contents'] ?? [];
+        foreach (['CommonPrefixes', 'Contents'] as $key) {
+            $result[$key] = $result[$key] ?? [];
 
-        if (($key = \key($result['Contents'])) !== 0) {
-            $result['Contents'] = \is_null($key) ? [] : [$result['Contents']];
+            // 确保是二维数组
+            if (($index = \key($result[$key])) !== 0) {
+                $result[$key] = \is_null($index) ? [] : [$result[$key]];
+            }
         }
 
         return $result;
