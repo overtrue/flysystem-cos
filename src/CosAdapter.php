@@ -400,10 +400,18 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
      */
     protected function listObjects($directory = '', $recursive = false)
     {
-        return $this->getBucketClient()->getObjects([
+        $result = $this->getBucketClient()->getObjects([
             'prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
             'delimiter' => $recursive ? '' : '/',
         ])['ListBucketResult'];
+
+        $result['Contents'] = $result['Contents'] ?? [];
+
+        if (($key = \key($result['Contents'])) !== 0) {
+            $result['Contents'] = \is_null($key) ? [] : [$result['Contents']];
+        }
+
+        return $result;
     }
 
     /**
