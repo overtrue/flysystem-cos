@@ -111,7 +111,7 @@ class CosAdapter implements FilesystemAdapter
 
     public function move(string $source, string $destination, Config $config): void
     {
-        $this->copy($source, $destination);
+        $this->copy($source, $destination, $config);
 
         $this->delete($this->prefixer->prefixPath($source));
     }
@@ -122,7 +122,7 @@ class CosAdapter implements FilesystemAdapter
 
         $location = $this->getSourcePath($prefixedSource);
 
-        $prefixedDestination = $this->applyPathPrefix($destination);
+        $prefixedDestination = $this->prefixer->prefixPath($destination);
 
         $response = $this->getObjectClient()->copyObject(
             $prefixedDestination,
@@ -143,7 +143,7 @@ class CosAdapter implements FilesystemAdapter
 
         if (!$response->isSuccessful()) {
             throw UnableToDeleteFile::atLocation($path, (string)$response->getBody());
-        };
+        }
     }
 
     public function listContents(string $path, bool $deep): iterable
