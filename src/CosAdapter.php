@@ -3,14 +3,22 @@
 namespace Overtrue\Flysystem\Cos;
 
 use GuzzleHttp\Psr7\Uri;
-use League\Flysystem\Adapter\AbstractAdapter;
-use League\Flysystem\Adapter\CanOverwriteFiles;
-use League\Flysystem\AdapterInterface;
 use League\Flysystem\Config;
+use League\Flysystem\DirectoryAttributes;
+use League\Flysystem\FileAttributes;
+use League\Flysystem\FilesystemAdapter;
+use League\Flysystem\PathPrefixer;
+use League\Flysystem\UnableToCopyFile;
+use League\Flysystem\UnableToDeleteDirectory;
+use League\Flysystem\UnableToDeleteFile;
+use League\Flysystem\UnableToReadFile;
+use League\Flysystem\UnableToRetrieveMetadata;
+use League\Flysystem\UnableToWriteFile;
+use League\Flysystem\Visibility;
 use Overtrue\CosClient\ObjectClient;
 use Overtrue\CosClient\BucketClient;
 
-class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
+class CosAdapter implements FilesystemAdapter
 {
     /**
      * @var \Overtrue\CosClient\ObjectClient|null
@@ -23,6 +31,11 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     protected ?BucketClient $bucketClient;
 
     /**
+     * @var PathPrefixer
+     */
+    protected PathPrefixer $prefixer;
+
+    /**
      * @var array
      */
     protected $config;
@@ -30,7 +43,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     /**
      * CosAdapter constructor.
      *
-     * @param  array  $config
+     * @param array $config
      */
     public function __construct(array $config)
     {
@@ -44,233 +57,182 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             $config
         );
 
-        if (!empty($config['prefix'])) {
-            $this->setPathPrefix($config['prefix']);
-        }
+        $this->prefixer = new PathPrefixer($config['prefix'] ?? '', DIRECTORY_SEPARATOR);
     }
 
-    /**
-     * @param  string  $path
-     *
-     * @return bool
-     */
-    public function has($path)
+    public function fileExists(string $path): bool
     {
-        return !empty($this->getMetadata($path));
+        return $this->getMetadata($path) !== null;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function write($path, $contents, Config $config)
+    public function write(string $path, string $contents, Config $config): void
     {
-        $response = $this->getObjectClient()->putObject($this->applyPathPrefix($path), \strval($contents), $config->get('headers', []));
+        $prefixedPath = $this->prefixer->prefixPath($path);
+        $response = $this->getObjectClient()->putObject($prefixedPath, $contents, $config->get('headers', []));
 
         if (!$response->isSuccessful()) {
-            return false;
+            throw UnableToWriteFile::atLocation($path, (string)$response->getBody());
         }
-
-        $result = [
-            'contents' => $contents,
-            'type' => $response->getHeader('Content-Type'),
-            'size' => $response->getHeader('Content-Length'),
-            'path' => $this->applyPathPrefix($path),
-        ];
 
         if ($visibility = $config->get('visibility')) {
-            $result['visibility'] = $visibility;
             $this->setVisibility($path, $visibility);
         }
-
-        return $result;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function writeStream($path, $resource, Config $config)
+    public function writeStream(string $path, $contents, Config $config): void
     {
-        return $this->write($path, \stream_get_contents($resource), $config);
+        $this->write($path, \stream_get_contents($contents), $config);
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function readStream($path)
+    public function readStream(string $path)
     {
-        $response = $this->getObjectClient()->get(\urlencode($this->applyPathPrefix($path)), ['stream' => true]);
+        $prefixedPath = $this->prefixer->prefixPath($path);
+
+        $response = $this->getObjectClient()->get(\urlencode($prefixedPath), ['stream' => true]);
 
         if ($response->isNotFound()) {
             return false;
         }
 
-        return [
-            'type' => 'file',
-            'path' => $path,
-            'stream' => $response->getBody()->detach(),
-        ];
+        return $response->getBody()->detach();
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function updateStream($path, $resource, Config $config)
+    public function read(string $path): string
     {
-        return $this->writeStream($path, $resource, $config);
+        $prefixedPath = $this->prefixer->prefixPath($path);
+
+        $response = $this->getObjectClient()->getObject($prefixedPath);
+        if ($response->isNotFound()) {
+            throw UnableToReadFile::fromLocation($path, (string)$response->getBody());
+        }
+
+        return (string)$response->getBody();
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function update($path, $contents, Config $config)
+    public function move(string $source, string $destination, Config $config): void
     {
-        return $this->write($path, $contents, $config);
+        $this->copy($source, $destination, $config);
+
+        $this->delete($this->prefixer->prefixPath($source));
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function read($path)
+    public function copy(string $source, string $destination, Config $config): void
     {
-        $path = $this->applyPathPrefix($path);
-        $response = $this->getObjectClient()->getObject($path);
+        $prefixedSource = $this->prefixer->prefixPath($source);
 
-        return $response->isNotFound() ? false : ['type' => 'file', 'path' => $path, 'contents' => $response->getContents()];
-    }
+        $location = $this->getSourcePath($prefixedSource);
 
-    /**
-     * @inheritDoc
-     */
-    public function rename($path, $newpath)
-    {
-        $result = $this->copy($path, $newpath);
+        $prefixedDestination = $this->prefixer->prefixPath($destination);
 
-        $this->delete($this->applyPathPrefix($path));
-
-        return $result;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function copy($path, $newpath)
-    {
-        $location = $this->getSourcePath($this->applyPathPrefix($path));
-        $destination = $this->applyPathPrefix($newpath);
-
-        try {
-            return $this->getObjectClient()->copyObject(
-                $destination,
-                [
-                    'x-cos-copy-source' => $location,
-                ]
-            )->isSuccessful();
-        } catch (\Exception $e) {
-            return false;
+        $response = $this->getObjectClient()->copyObject(
+            $prefixedDestination,
+            [
+                'x-cos-copy-source' => $location,
+            ]
+        );
+        if (!$response->isSuccessful()) {
+            throw UnableToCopyFile::fromLocationTo($source, $destination);
         }
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function delete($path)
+    public function delete(string $path): void
     {
-        return $this->getObjectClient()->deleteObject($this->applyPathPrefix($path))->isSuccessful();
+        $prefixedPath = $this->prefixer->prefixPath($path);
+
+        $response = $this->getObjectClient()->deleteObject($prefixedPath);
+
+        if (!$response->isSuccessful()) {
+            throw UnableToDeleteFile::atLocation($path, (string)$response->getBody());
+        }
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function listContents($directory = '', $recursive = false)
+    public function listContents(string $path, bool $deep): iterable
     {
-        $list = [];
+        $prefixedPath = $this->prefixer->prefixPath($path);
 
-        $response = $this->listObjects($this->applyPathPrefix($directory), $recursive);
+        $response = $this->listObjects($prefixedPath, $deep);
 
         // 处理目录
         foreach ($response['CommonPrefixes'] ?? [] as $prefix) {
-            $list[] = $this->normalizeFileInfo(
-                [
-                    'Key' => $prefix['Prefix'],
-                    'Size' => 0,
-                    'LastModified' => 0,
-                ]
-            );
+            yield new DirectoryAttributes($prefix);
         }
 
         foreach ($response['Contents'] ?? [] as $content) {
-            $list[] = $this->normalizeFileInfo($content);
-        }
-
-        return \array_filter($list);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getMetadata($path)
-    {
-        try {
-            return $this->getObjectClient()->headObject($this->applyPathPrefix($path))->getHeaders();
-        } catch (\Exception $e) {
-            return false;
+            yield new FileAttributes(
+                $content['Key'],
+                \intval($content['Size']),
+                null,
+                \strtotime($content['LastModified'])
+            );
         }
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getSize($path)
+    public function getMetadata($path): ?FileAttributes
     {
-        $meta = $this->getMetadata($path);
+        $prefixedPath = $this->prefixer->prefixPath($path);
 
-        return isset($meta['Content-Length'][0]) ? ['size' => $meta['Content-Length'][0]] : false;
+        $meta = $this->getObjectClient()->headObject($prefixedPath)->getHeaders();
+        if (empty($meta)) {
+            return null;
+        }
+
+        return new FileAttributes(
+            $path,
+            $meta['Content-Length'][0] ?? null,
+            null,
+            $meta['Last-Modified'][0] ?? null,
+            $meta['Content-Type'][0] ?? null,
+        );
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getMimetype($path)
+    public function fileSize(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
+        if ($meta->fileSize() === null) {
+            throw UnableToRetrieveMetadata::fileSize($path);
+        }
 
-        return isset($meta['Content-Type'][0]) ? ['mimetype' => $meta['Content-Type'][0]] : false;
+        return $meta;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getTimestamp($path)
+    public function mimeType(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
-
-        return isset($meta['Last-Modified'][0]) ? ['timestamp' => \strtotime($meta['Last-Modified'][0])] : false;
+        if ($meta->mimeType() === null) {
+            throw UnableToRetrieveMetadata::mimeType($path);
+        }
+        return $meta;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getVisibility($path)
+    public function lastModified(string $path): FileAttributes
     {
-        $path = $this->applyPathPrefix($path);
-        $meta = $this->getObjectClient()->getObjectACL($path);
+        $meta = $this->getMetadata($path);
+        if ($meta->lastModified() === null) {
+            throw UnableToRetrieveMetadata::lastModified($path);
+        }
+
+        return $meta;
+    }
+
+    public function visibility(string $path): FileAttributes
+    {
+        $prefixedPath = $this->prefixer->prefixPath($path);
+
+        $meta = $this->getObjectClient()->getObjectACL($prefixedPath);
 
         foreach ($meta['AccessControlPolicy']['AccessControlList']['Grant'] ?? [] as $grant) {
             if ('READ' === $grant['Permission'] && false !== strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
-                return ['visibility' => AdapterInterface::VISIBILITY_PUBLIC];
+                return new FileAttributes($path, null, Visibility::PUBLIC);
             }
         }
 
-        return ['path' => $path, 'visibility' => AdapterInterface::VISIBILITY_PRIVATE];
+        return new FileAttributes($path, null, Visibility::PRIVATE);
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function setVisibility($path, $visibility)
+    public function setVisibility(string $path, string $visibility): void
     {
-        return (bool)$this->getObjectClient()->putObjectACL(
-            $this->applyPathPrefix($path),
+        $this->getObjectClient()->putObjectACL(
+            $this->prefixer->prefixPath($path),
             [],
             [
                 'x-cos-acl' => $this->normalizeVisibility($visibility),
@@ -278,34 +240,21 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         );
     }
 
-    /**
-     * @param  string  $dirname
-     * @param  Config  $config
-     *
-     * @return array|bool
-     */
-    public function createDir($dirname, Config $config)
+    public function createDirectory(string $path, Config $config): void
     {
-        $dirname = $this->applyPathPrefix($dirname);
+        $dirname = $this->prefixer->prefixPath($path);
 
-        try {
-            $this->getObjectClient()->putObject($dirname.'/', '');
-        } catch (\Exception $e) {
-            return false;
-        }
-
-        return ['type' => 'dir', 'path' => $dirname];
+        $this->getObjectClient()->putObject($dirname . '/', '');
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function deleteDir($dirname)
+    public function deleteDirectory(string $path): void
     {
-        $response = $this->listObjects($this->applyPathPrefix($dirname));
+        $dirname = $this->prefixer->prefixPath($path);
+
+        $response = $this->listObjects($dirname);
 
         if (empty($response['Contents'])) {
-            return true;
+            return;
         }
 
         $keys = array_map(
@@ -315,36 +264,36 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
             $response['Contents']
         );
 
-        return $this->getObjectClient()->deleteObjects(
+        $response = $this->getObjectClient()->deleteObjects(
             [
                 'Delete' => [
                     'Quiet' => 'false',
                     'Object' => $keys,
                 ],
             ]
-        )->isSuccessful();
+        );
+
+        if (!$response->isSuccessful()) {
+            throw UnableToDeleteDirectory::atLocation($path, (string) $response->getBody());
+        }
     }
 
-    public function getUrl($path)
+    public function getUrl(string $path)
     {
-        $path = $this->applyPathPrefix($path);
+        $prefixedPath = $this->prefixer->prefixPath($path);
 
         if (!empty($this->config['cdn'])) {
-            return \strval(new Uri(\sprintf('%s/%s', \rtrim($this->config['cdn'], '/'), $path)));
+            return \strval(new Uri(\sprintf('%s/%s', \rtrim($this->config['cdn'], '/'), $prefixedPath)));
         }
 
-        return $this->config['signed_url'] ? $this->getSignedUrl($path) : $this->getObjectClient()->getObjectUrl($path);
+        return $this->config['signed_url'] ? $this->getSignedUrl($path) : $this->getObjectClient()->getObjectUrl($prefixedPath);
     }
 
-    /**
-     * @param  string  $path
-     * @param  string  $expires
-     *
-     * @return string
-     */
-    public function getSignedUrl($path, $expires = '+60 minutes'): string
+    public function getSignedUrl(string $path, string $expires = '+60 minutes'): string
     {
-        return $this->getObjectClient()->getObjectSignedUrl($this->applyPathPrefix($this->removePathPrefix($path)), $expires);
+        $prefixedPath = $this->prefixer->prefixPath($path);
+
+        return $this->getObjectClient()->getObjectSignedUrl($prefixedPath, $expires);
     }
 
     public function getObjectClient()
@@ -358,7 +307,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param  \Overtrue\CosClient\ObjectClient  $objectClient
+     * @param \Overtrue\CosClient\ObjectClient $objectClient
      *
      * @return $this
      */
@@ -370,7 +319,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param  \Overtrue\CosClient\BucketClient  $bucketClient
+     * @param \Overtrue\CosClient\BucketClient $bucketClient
      *
      * @return $this
      */
@@ -382,7 +331,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param  string  $path
+     * @param string $path
      *
      * @return string
      */
@@ -398,29 +347,8 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     }
 
     /**
-     * @param  array  $content
-     *
-     * @return array
-     */
-    protected function normalizeFileInfo(array $content)
-    {
-        $path = pathinfo($content['Key']);
-
-        return [
-            'type' => '/' === substr($content['Key'], -1) ? 'dir' : 'file',
-            'path' => $content['Key'],
-            'size' => \intval($content['Size']),
-            'dirname' => \strval($path['dirname'] === '.' ? '' : $path['dirname']),
-            'basename' => \strval($path['basename']),
-            'filename' => strval($path['filename']),
-            'timestamp' => \strtotime($content['LastModified']),
-            'extension' => $path['extension'] ?? '',
-        ];
-    }
-
-    /**
-     * @param  string  $directory
-     * @param  bool    $recursive
+     * @param string $directory
+     * @param bool $recursive
      *
      * @return mixed
      */
@@ -428,7 +356,7 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
     {
         $result = $this->getBucketClient()->getObjects(
             [
-                'prefix' => ('' === (string)$directory) ? '' : ($directory.'/'),
+                'prefix' => ('' === (string)$directory) ? '' : ($directory . '/'),
                 'delimiter' => $recursive ? '' : '/',
             ]
         )['ListBucketResult'];
@@ -445,13 +373,19 @@ class CosAdapter extends AbstractAdapter implements CanOverwriteFiles
         return $result;
     }
 
-    /**
-     * @param $visibility
-     *
-     * @return string
-     */
-    protected function normalizeVisibility($visibility)
+    protected function normalizeVisibility(string $visibility): string
     {
-        return $visibility === AdapterInterface::VISIBILITY_PUBLIC ? 'public-read' : 'default';
+        return $visibility === Visibility::PUBLIC ? 'public-read' : 'default';
+    }
+
+    protected function toResource(string $body)
+    {
+        $resource = fopen('php://temp', 'r+');
+        if ($body !== '') {
+            fwrite($resource, $body);
+            fseek($resource, 0);
+        }
+
+        return $resource;
     }
 }
