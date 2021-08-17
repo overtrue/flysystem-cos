@@ -29,8 +29,6 @@ $ composer require overtrue/flysystem-cos -vvv
 ```php
 use League\Flysystem\Filesystem;
 use Overtrue\Flysystem\Cos\CosAdapter;
-use Overtrue\Flysystem\Cos\Plugins\FileSignedUrl;
-use Overtrue\Flysystem\Cos\Plugins\FileUrl;
 
 $config = [
     // 必填，app_id、secret_id、secret_key 
@@ -53,9 +51,6 @@ $adapter = new CosAdapter($config);
 
 $flysystem = new League\Flysystem\Filesystem($adapter);
 
-// 增加对象 URL 方法
-$flysystem->addPlugin(new FileUrl());
-$flysystem->addPlugin(new FileSignedUrl());
 ```
 ## API
 
@@ -85,9 +80,6 @@ string $flysystem->mimeType('file.md');
 
 int $flysystem->lastModified('file.md');
 
-// 插件提供的方法
-string $flysystem->getUrl('foo.md'); 
-string $flysystem->getSignedUrl('foo.md', '+30 minutes');
 ```
 
 ## License
