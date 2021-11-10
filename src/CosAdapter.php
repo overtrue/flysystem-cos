@@ -178,7 +178,7 @@ class CosAdapter implements FilesystemAdapter
 
         return new FileAttributes(
             $path,
-            isset($meta['Content-Length'][0]) ? \strtotime($meta['Content-Length'][0]) : null,
+            isset($meta['Content-Length'][0]) ? \intval($meta['Content-Length'][0]) : null,
             null,
             isset($meta['Last-Modified'][0]) ? \strtotime($meta['Last-Modified'][0]) : null,
             $meta['Content-Type'][0] ?? null,
