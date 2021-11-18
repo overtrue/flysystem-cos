@@ -14,6 +14,8 @@
 
 🚨 当前为 v4 版本，v4 和 [v3](https://github.com/overtrue/flysystem-cos/tree/3.x) 在配置写法上有差异，升级请注意。
 
+[![Sponsor me](https://raw.githubusercontent.com/overtrue/overtrue/master/sponsor-me-button-s.svg)](https://github.com/sponsors/overtrue)
+
 ## Requirement
 
 * PHP >= 7.4
@@ -84,7 +86,7 @@ int $flysystem->lastModified('file.md');
 
 ## :heart: Sponsor me 
 
-If you like the work I do and want to support it, [you know what to do :heart:](https://github.com/sponsors/overtrue)
+[![Sponsor me](https://raw.githubusercontent.com/overtrue/overtrue/master/sponsor-me.svg)](https://github.com/sponsors/overtrue)
 
 如果你喜欢我的项目并想支持它，[点击这里 :heart:](https://github.com/sponsors/overtrue)
 
