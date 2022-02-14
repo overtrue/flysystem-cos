@@ -1,22 +1,16 @@
-<h1 align="center">Flysystem QCloud COS</h1>
+Flysystem QCloud COS
 
-<p align="center">:floppy_disk: Flysystem adapter for the Qcloud COS storage.</p>
+---
 
-<p align="center">
-<a href="https://travis-ci.org/overtrue/flysystem-cos"><img src="https://travis-ci.org/overtrue/flysystem-cos.svg?branch=master" alt="Build Status"></a>
-<a href="https://packagist.org/packages/overtrue/flysystem-cos"><img src="https://poser.pugx.org/overtrue/flysystem-cos/v/stable.svg" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/overtrue/flysystem-cos"><img src="https://poser.pugx.org/overtrue/flysystem-cos/v/unstable.svg" alt="Latest Unstable Version"></a>
-<a href="https://packagist.org/packages/overtrue/flysystem-cos"><img src="https://poser.pugx.org/overtrue/flysystem-cos/downloads" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/overtrue/flysystem-cos"><img src="https://poser.pugx.org/overtrue/flysystem-cos/license" alt="License"></a>
-</p>
+:floppy_disk: Flysystem adapter for the Qcloud COS storage.
 
-🚨 当前为 v4 版本，v4 和 [v3](https://github.com/overtrue/flysystem-cos/tree/3.x) 在配置写法上有差异，升级请注意。
+[![Build Status](https://travis-ci.org/overtrue/flysystem-cos.svg?branch=master)](https://travis-ci.org/overtrue/flysystem-cos) [![Latest Stable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/stable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Latest Unstable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/unstable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Total Downloads](https://poser.pugx.org/overtrue/flysystem-cos/downloads)](https://packagist.org/packages/overtrue/flysystem-cos) [![License](https://poser.pugx.org/overtrue/flysystem-cos/license)](https://packagist.org/packages/overtrue/flysystem-cos)
 
 [![Sponsor me](https://github.com/overtrue/overtrue/blob/master/sponsor-me-button-s.svg?raw=true)](https://github.com/sponsors/overtrue)
 
 ## Requirement
 
-* PHP >= 7.4
+* PHP >= 8.0.2
 
 ## Installation
 
