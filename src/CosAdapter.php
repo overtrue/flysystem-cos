@@ -309,6 +309,18 @@ class CosAdapter implements FilesystemAdapter
     }
 
     /**
+     * For laravel FilesystemAdapter.
+     */
+    public function getTemporaryUrl($path, int|string|\DateTimeInterface $expiration): string
+    {
+        if ($expiration instanceof \DateTimeInterface) {
+            $expiration = $expiration->getTimestamp();
+        }
+
+        return $this->getSignedUrl($path, $expiration);
+    }
+
+    /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
     public function getSignedUrl(string $path, string $expires = '+60 minutes'): string
