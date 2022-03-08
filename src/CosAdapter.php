@@ -246,7 +246,7 @@ class CosAdapter implements FilesystemAdapter
 
         // 处理目录
         foreach ($response['CommonPrefixes'] ?? [] as $prefix) {
-            yield new DirectoryAttributes($prefix);
+            yield new DirectoryAttributes($prefix['Prefix']);
         }
 
         foreach ($response['Contents'] ?? [] as $content) {
