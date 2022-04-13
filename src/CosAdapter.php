@@ -3,6 +3,7 @@
 namespace Overtrue\Flysystem\Cos;
 
 use GuzzleHttp\Psr7\Uri;
+use JetBrains\PhpStorm\Pure;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
@@ -15,6 +16,7 @@ use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\Visibility;
+use Overtrue\CosClient\Exceptions\ClientException;
 use Overtrue\CosClient\ObjectClient;
 use Overtrue\CosClient\BucketClient;
 
@@ -26,6 +28,7 @@ class CosAdapter implements FilesystemAdapter
 
     protected array $config;
 
+    #[Pure]
     public function __construct(array $config)
     {
         $this->config = \array_merge(
@@ -43,10 +46,11 @@ class CosAdapter implements FilesystemAdapter
 
     /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     * @throws \Throwable
      */
     public function fileExists(string $path): bool
     {
-        return $this->getMetadata($path) !== null;
+        return $this->getMetadata($path) !== false;
     }
 
     /**
@@ -74,6 +78,9 @@ class CosAdapter implements FilesystemAdapter
         }
     }
 
+    /**
+     * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     */
     public function writeStream(string $path, $contents, Config $config): void
     {
         $this->write($path, \stream_get_contents($contents), $config);
@@ -192,7 +199,7 @@ class CosAdapter implements FilesystemAdapter
         $meta = $this->getObjectClient()->getObjectACL($prefixedPath);
 
         foreach ($meta['AccessControlPolicy']['AccessControlList']['Grant'] ?? [] as $grant) {
-            if ('READ' === $grant['Permission'] && false !== strpos($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
+            if ('READ' === $grant['Permission'] && str_contains($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
                 return new FileAttributes($path, null, Visibility::PUBLIC);
             }
         }
@@ -202,6 +209,7 @@ class CosAdapter implements FilesystemAdapter
 
     /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     * @throws \Throwable
      */
     public function mimeType(string $path): FileAttributes
     {
@@ -213,11 +221,14 @@ class CosAdapter implements FilesystemAdapter
     }
 
     /**
+     * @return \League\Flysystem\FileAttributes
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     * @throws \Throwable
      */
     public function lastModified(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
+
         if ($meta->lastModified() === null) {
             throw UnableToRetrieveMetadata::lastModified($path);
         }
@@ -227,10 +238,12 @@ class CosAdapter implements FilesystemAdapter
 
     /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     * @throws \Throwable
      */
     public function fileSize(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
+
         if ($meta->fileSize() === null) {
             throw UnableToRetrieveMetadata::fileSize($path);
         }
@@ -260,7 +273,6 @@ class CosAdapter implements FilesystemAdapter
     }
 
     /**
-     * @throws \League\Flysystem\FilesystemException
      * @throws \Overtrue\CosClient\Exceptions\InvalidArgumentException
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
@@ -373,14 +385,23 @@ class CosAdapter implements FilesystemAdapter
 
     /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     * @throws \Throwable
      */
-    protected function getMetadata($path): ?FileAttributes
+    protected function getMetadata($path): bool|FileAttributes
     {
-        $prefixedPath = $this->prefixer->prefixPath($path);
+        try {
+            $prefixedPath = $this->prefixer->prefixPath($path);
 
-        $meta = $this->getObjectClient()->headObject($prefixedPath)->getHeaders();
-        if (empty($meta)) {
-            return null;
+            $meta = $this->getObjectClient()->headObject($prefixedPath)->getHeaders();
+            if (empty($meta)) {
+                return false;
+            }
+        } catch (\Throwable $e) {
+            if ($e instanceof ClientException && $e->getCode() === 404) {
+                return false;
+            }
+
+            throw $e;
         }
 
         return new FileAttributes(

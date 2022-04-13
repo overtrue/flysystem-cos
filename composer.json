@@ -2,6 +2,7 @@
     "name": "overtrue/flysystem-cos",
     "description": "Flysystem adapter for the QCloud COS storage.",
     "require": {
+        "php": ">=8.0.2",
         "league/flysystem": "^3.0",
         "overtrue/qcloud-cos-client": "^1.0.0"
     },
