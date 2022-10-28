@@ -244,7 +244,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $meta = $this->getMetadata($path);
 
-        if ($meta->fileSize() === null) {
+        if (!$meta || $meta->fileSize() === null) {
             throw UnableToRetrieveMetadata::fileSize($path);
         }
 
