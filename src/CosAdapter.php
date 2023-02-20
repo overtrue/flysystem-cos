@@ -214,7 +214,7 @@ class CosAdapter implements FilesystemAdapter
     public function mimeType(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
-        if ($meta->mimeType() === null) {
+        if (!$meta || $meta->mimeType() === null) {
             throw UnableToRetrieveMetadata::mimeType($path);
         }
         return $meta;
@@ -229,7 +229,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $meta = $this->getMetadata($path);
 
-        if ($meta->lastModified() === null) {
+        if (!$meta || $meta->lastModified() === null) {
             throw UnableToRetrieveMetadata::lastModified($path);
         }
 
