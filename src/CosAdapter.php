@@ -16,14 +16,16 @@ use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToWriteFile;
 use League\Flysystem\Visibility;
+use Overtrue\CosClient\BucketClient;
 use Overtrue\CosClient\Exceptions\ClientException;
 use Overtrue\CosClient\ObjectClient;
-use Overtrue\CosClient\BucketClient;
 
 class CosAdapter implements FilesystemAdapter
 {
     protected ?ObjectClient $objectClient;
+
     protected ?BucketClient $bucketClient;
+
     protected PathPrefixer $prefixer;
 
     protected array $config;
@@ -69,8 +71,8 @@ class CosAdapter implements FilesystemAdapter
         $prefixedPath = $this->prefixer->prefixPath($path);
         $response = $this->getObjectClient()->putObject($prefixedPath, $contents, $config->get('headers', []));
 
-        if (!$response->isSuccessful()) {
-            throw UnableToWriteFile::atLocation($path, (string)$response->getBody());
+        if (! $response->isSuccessful()) {
+            throw UnableToWriteFile::atLocation($path, (string) $response->getBody());
         }
 
         if ($visibility = $config->get('visibility')) {
@@ -95,10 +97,10 @@ class CosAdapter implements FilesystemAdapter
 
         $response = $this->getObjectClient()->getObject($prefixedPath);
         if ($response->isNotFound()) {
-            throw UnableToReadFile::fromLocation($path, (string)$response->getBody());
+            throw UnableToReadFile::fromLocation($path, (string) $response->getBody());
         }
 
-        return (string)$response->getBody();
+        return (string) $response->getBody();
     }
 
     /**
@@ -126,8 +128,8 @@ class CosAdapter implements FilesystemAdapter
 
         $response = $this->getObjectClient()->deleteObject($prefixedPath);
 
-        if (!$response->isSuccessful()) {
-            throw UnableToDeleteFile::atLocation($path, (string)$response->getBody());
+        if (! $response->isSuccessful()) {
+            throw UnableToDeleteFile::atLocation($path, (string) $response->getBody());
         }
     }
 
@@ -160,7 +162,7 @@ class CosAdapter implements FilesystemAdapter
             ]
         );
 
-        if (!$response->isSuccessful()) {
+        if (! $response->isSuccessful()) {
             throw UnableToDeleteDirectory::atLocation($path, (string) $response->getBody());
         }
     }
@@ -172,7 +174,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $dirname = $this->prefixer->prefixPath($path);
 
-        $this->getObjectClient()->putObject($dirname . '/', '');
+        $this->getObjectClient()->putObject($dirname.'/', '');
     }
 
     /**
@@ -214,14 +216,14 @@ class CosAdapter implements FilesystemAdapter
     public function mimeType(string $path): FileAttributes
     {
         $meta = $this->getMetadata($path);
-        if (!$meta || $meta->mimeType() === null) {
+        if (! $meta || $meta->mimeType() === null) {
             throw UnableToRetrieveMetadata::mimeType($path);
         }
+
         return $meta;
     }
 
     /**
-     * @return \League\Flysystem\FileAttributes
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      * @throws \Throwable
      */
@@ -229,7 +231,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $meta = $this->getMetadata($path);
 
-        if (!$meta || $meta->lastModified() === null) {
+        if (! $meta || $meta->lastModified() === null) {
             throw UnableToRetrieveMetadata::lastModified($path);
         }
 
@@ -244,7 +246,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $meta = $this->getMetadata($path);
 
-        if (!$meta || $meta->fileSize() === null) {
+        if (! $meta || $meta->fileSize() === null) {
             throw UnableToRetrieveMetadata::fileSize($path);
         }
 
@@ -301,7 +303,7 @@ class CosAdapter implements FilesystemAdapter
                 'x-cos-copy-source' => $location,
             ]
         );
-        if (!$response->isSuccessful()) {
+        if (! $response->isSuccessful()) {
             throw UnableToCopyFile::fromLocationTo($source, $destination);
         }
     }
@@ -313,7 +315,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $prefixedPath = $this->prefixer->prefixPath($path);
 
-        if (!empty($this->config['cdn'])) {
+        if (! empty($this->config['cdn'])) {
             return \strval(new Uri(\sprintf('%s/%s', \rtrim($this->config['cdn'], '/'), $prefixedPath)));
         }
 
@@ -417,7 +419,7 @@ class CosAdapter implements FilesystemAdapter
     {
         $result = $this->getBucketClient()->getObjects(
             [
-                'prefix' => ('' === (string)$directory) ? '' : ($directory . '/'),
+                'prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
                 'delimiter' => $recursive ? '' : '/',
             ]
         )['ListBucketResult'];
