@@ -337,9 +337,13 @@ class CosAdapter implements FilesystemAdapter
     /**
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
-    public function getSignedUrl(string $path, string $expires = '+60 minutes'): string
+    public function getSignedUrl(string $path, int|string $expires = '+60 minutes'): string
     {
         $prefixedPath = $this->prefixer->prefixPath($path);
+
+        if (is_int($expires)) {
+            $expires = \date('Y-m-d H:i:s', $expires);
+        }
 
         return $this->getObjectClient()->getObjectSignedUrl($prefixedPath, $expires);
     }
