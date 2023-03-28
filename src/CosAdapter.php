@@ -435,6 +435,13 @@ class CosAdapter implements FilesystemAdapter
             if (($index = \key($result[$key])) !== 0) {
                 $result[$key] = \is_null($index) ? [] : [$result[$key]];
             }
+
+            //过滤掉目录
+            if ($key === 'Contents') {
+                $result[$key] = \array_filter($result[$key], function ($item) {
+                    return ! \str_ends_with($item['Key'], '/');
+                });
+            }
         }
 
         return $result;
