@@ -449,6 +449,10 @@ class CosAdapter implements FilesystemAdapter
 
     protected function normalizeVisibility(string $visibility): string
     {
-        return $visibility === Visibility::PUBLIC ? 'public-read' : 'default';
+        return match ($visibility) {
+            Visibility::PUBLIC => 'public-read',
+            Visibility::PRIVATE => 'private',
+            default => 'default',
+        };
     }
 }
