@@ -4,7 +4,7 @@ Flysystem QCloud COS
 
 :floppy_disk: Flysystem adapter for the Qcloud COS storage.
 
-[![Build Status](https://travis-ci.org/overtrue/flysystem-cos.svg?branch=master)](https://travis-ci.org/overtrue/flysystem-cos) [![Latest Stable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/stable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Latest Unstable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/unstable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Total Downloads](https://poser.pugx.org/overtrue/flysystem-cos/downloads)](https://packagist.org/packages/overtrue/flysystem-cos) [![License](https://poser.pugx.org/overtrue/flysystem-cos/license)](https://packagist.org/packages/overtrue/flysystem-cos)
+[![Test](https://github.com/overtrue/flysystem-cos/actions/workflows/test.yml/badge.svg)](https://github.com/overtrue/flysystem-cos/actions/workflows/test.yml) [![Latest Stable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/stable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Latest Unstable Version](https://poser.pugx.org/overtrue/flysystem-cos/v/unstable.svg)](https://packagist.org/packages/overtrue/flysystem-cos) [![Total Downloads](https://poser.pugx.org/overtrue/flysystem-cos/downloads)](https://packagist.org/packages/overtrue/flysystem-cos) [![License](https://poser.pugx.org/overtrue/flysystem-cos/license)](https://packagist.org/packages/overtrue/flysystem-cos)
 
 [![Sponsor me](https://github.com/overtrue/overtrue/blob/master/sponsor-me-button-s.svg?raw=true)](https://github.com/sponsors/overtrue)
 
