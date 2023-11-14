@@ -9,3 +9,4 @@ composer.lock
 index.php
 .phpunit.result.cache
 .php-cs-fixer.cache
+cghooks.lock

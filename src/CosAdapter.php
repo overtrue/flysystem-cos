@@ -201,7 +201,7 @@ class CosAdapter implements FilesystemAdapter
         $meta = $this->getObjectClient()->getObjectACL($prefixedPath);
 
         foreach ($meta['AccessControlPolicy']['AccessControlList']['Grant'] ?? [] as $grant) {
-            if ('READ' === $grant['Permission'] && str_contains($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
+            if ($grant['Permission'] === 'READ' && str_contains($grant['Grantee']['URI'] ?? '', 'global/AllUsers')) {
                 return new FileAttributes($path, null, Visibility::PUBLIC);
             }
         }
@@ -423,10 +423,10 @@ class CosAdapter implements FilesystemAdapter
     {
         $result = $this->getBucketClient()->getObjects(
             [
-                'prefix' => ('' === (string) $directory) ? '' : ($directory.'/'),
+                'prefix' => empty($directory) ? '' : ($directory.'/'),
                 'delimiter' => $recursive ? '' : '/',
             ]
-        )['ListBucketResult'];
+        )->toArray();
 
         foreach (['CommonPrefixes', 'Contents'] as $key) {
             $result[$key] = $result[$key] ?? [];
