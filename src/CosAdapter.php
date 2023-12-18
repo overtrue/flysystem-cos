@@ -19,6 +19,7 @@ use League\Flysystem\Visibility;
 use Overtrue\CosClient\BucketClient;
 use Overtrue\CosClient\Exceptions\ClientException;
 use Overtrue\CosClient\ObjectClient;
+use TheNorthMemory\Xml\Transformer;
 
 class CosAdapter implements FilesystemAdapter
 {
@@ -155,10 +156,8 @@ class CosAdapter implements FilesystemAdapter
 
         $response = $this->getObjectClient()->deleteObjects(
             [
-                'Delete' => [
-                    'Quiet' => 'false',
-                    'Object' => $keys,
-                ],
+                'Quiet' => 'false',
+                'Object' => Transformer::wrap($keys, true, 'Object'),
             ]
         );
 
