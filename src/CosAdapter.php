@@ -192,6 +192,7 @@ class CosAdapter implements FilesystemAdapter
 
     /**
      * @see https://cloud.tencent.com/document/product/436/7744
+     *
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
     public function visibility(string $path): FileAttributes
