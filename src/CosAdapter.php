@@ -44,7 +44,7 @@ class CosAdapter implements FilesystemAdapter
             $config
         );
 
-        $this->prefixer = new PathPrefixer($config['prefix'] ?? '', DIRECTORY_SEPARATOR);
+        $this->prefixer = new PathPrefixer($config['prefix'] ?? '');
     }
 
     /**
