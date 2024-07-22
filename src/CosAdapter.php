@@ -2,8 +2,8 @@
 
 namespace Overtrue\Flysystem\Cos;
 
+use DateTimeInterface;
 use GuzzleHttp\Psr7\Uri;
-use JetBrains\PhpStorm\Pure;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
@@ -12,16 +12,18 @@ use League\Flysystem\PathPrefixer;
 use League\Flysystem\UnableToCopyFile;
 use League\Flysystem\UnableToDeleteDirectory;
 use League\Flysystem\UnableToDeleteFile;
+use League\Flysystem\UnableToGenerateTemporaryUrl;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToWriteFile;
+use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
 use League\Flysystem\Visibility;
 use Overtrue\CosClient\BucketClient;
 use Overtrue\CosClient\Exceptions\ClientException;
 use Overtrue\CosClient\ObjectClient;
 use TheNorthMemory\Xml\Transformer;
 
-class CosAdapter implements FilesystemAdapter
+class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 {
     protected ?ObjectClient $objectClient;
 
@@ -31,7 +33,6 @@ class CosAdapter implements FilesystemAdapter
 
     protected array $config;
 
-    #[Pure]
     public function __construct(array $config)
     {
         $this->config = \array_merge(
@@ -337,18 +338,17 @@ class CosAdapter implements FilesystemAdapter
         return $this->config['signed_url'] ? $this->getSignedUrl($path) : $this->getObjectClient()->getObjectUrl($prefixedPath);
     }
 
-    /**
-     * For laravel FilesystemAdapter.
-     *
-     * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
-     */
-    public function getTemporaryUrl($path, int|string|\DateTimeInterface $expiration): string
+    public function temporaryUrl(string $path, DateTimeInterface $expiresAt, Config $config): string
     {
-        if ($expiration instanceof \DateTimeInterface) {
-            $expiration = $expiration->getTimestamp();
+        if ($expiresAt instanceof \DateTimeInterface) {
+            $expiration = $expiresAt->getTimestamp();
         }
 
-        return $this->getSignedUrl($path, $expiration);
+        try {
+            return $this->getSignedUrl($path, $expiration);
+        } catch (\Throwable $exception) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $exception);
+        }
     }
 
     /**

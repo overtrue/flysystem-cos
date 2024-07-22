@@ -15,7 +15,7 @@
 ## Installation
 
 ```shell
-composer require overtrue/flysystem-cos -vvv
+composer require hepeichun/flysystem-cos -vvv
 ```
 
 ## Usage
@@ -81,19 +81,6 @@ string $flysystem->mimeType('file.md');
 int $flysystem->lastModified('file.md');
 
 ```
-
-## :heart: Sponsor me 
-
-[![Sponsor me](https://github.com/overtrue/overtrue/blob/master/sponsor-me.svg?raw=true)](https://github.com/sponsors/overtrue)
-
-如果你喜欢我的项目并想支持它，[点击这里 :heart:](https://github.com/sponsors/overtrue)
-
-## Project supported by JetBrains
-
-Many thanks to Jetbrains for kindly providing a license for me to work on this and other open-source projects.
-
-[![](https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg)](https://www.jetbrains.com/?from=https://github.com/overtrue)
-
 
 ## License
 

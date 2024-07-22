@@ -1,5 +1,5 @@
 {
-    "name": "overtrue/flysystem-cos",
+    "name": "hepeichun/flysystem-cos",
     "description": "Flysystem adapter for the QCloud COS storage.",
     "require": {
         "php": ">=8.0.2",
