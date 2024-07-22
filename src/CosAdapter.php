@@ -4,7 +4,6 @@ namespace Overtrue\Flysystem\Cos;
 
 use DateTimeInterface;
 use GuzzleHttp\Psr7\Uri;
-use JetBrains\PhpStorm\Pure;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
@@ -21,7 +20,6 @@ use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
 use League\Flysystem\Visibility;
 use Overtrue\CosClient\BucketClient;
 use Overtrue\CosClient\Exceptions\ClientException;
-use Overtrue\CosClient\Exceptions\InvalidConfigException;
 use Overtrue\CosClient\ObjectClient;
 use TheNorthMemory\Xml\Transformer;
 
@@ -35,7 +33,6 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
     protected array $config;
 
-    #[Pure]
     public function __construct(array $config)
     {
         $this->config = \array_merge(
