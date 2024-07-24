@@ -48,7 +48,7 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $config
         );
 
-        $this->prefixer = new PathPrefixer($config['prefix'] ?? '', DIRECTORY_SEPARATOR);
+        $this->prefixer = new PathPrefixer($config['prefix'] ?? '');
     }
 
     /**
