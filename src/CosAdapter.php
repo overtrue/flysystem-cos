@@ -21,7 +21,6 @@ use League\Flysystem\UrlGeneration\TemporaryUrlGenerator;
 use League\Flysystem\Visibility;
 use Overtrue\CosClient\BucketClient;
 use Overtrue\CosClient\Exceptions\ClientException;
-use Overtrue\CosClient\Exceptions\InvalidConfigException;
 use Overtrue\CosClient\ObjectClient;
 use TheNorthMemory\Xml\Transformer;
 
