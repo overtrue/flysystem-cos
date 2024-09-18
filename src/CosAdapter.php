@@ -341,6 +341,19 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
         return $this->config['signed_url'] ? $this->getSignedUrl($path) : $this->getObjectClient()->getObjectUrl($prefixedPath);
     }
 
+    public function getTemporaryUrl(string $path, $expiration)
+    {
+        if ($expiresAt instanceof \DateTimeInterface) {
+            $expiration = $expiresAt->getTimestamp();
+        }
+
+        try {
+            return $this->getSignedUrl($path, $expiration);
+        } catch (\Throwable $exception) {
+            throw UnableToGenerateTemporaryUrl::dueToError($path, $exception);
+        }
+    }
+
     public function temporaryUrl(string $path, DateTimeInterface $expiresAt, Config $config): string
     {
         if ($expiresAt instanceof \DateTimeInterface) {
