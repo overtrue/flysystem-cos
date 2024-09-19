@@ -342,8 +342,8 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
 
     public function getTemporaryUrl(string $path, $expiration)
     {
-        if ($expiresAt instanceof \DateTimeInterface) {
-            $expiration = $expiresAt->getTimestamp();
+        if ($expiration instanceof \DateTimeInterface) {
+            $expiration = $expiration->getTimestamp();
         }
 
         try {
