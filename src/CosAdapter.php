@@ -493,7 +493,7 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @return array
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
-    public function createUploadId (string $path, Config $config): array
+    public function createUploadId(string $path, Config $config): array
     {
         $prefixedPath = $this->prefixer->prefixPath($path);
         $response     = $this->getObjectClient()->createUploadId($prefixedPath, $config->get('headers', []));
@@ -517,7 +517,7 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @return array
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
-    public function uploadPart (string $path, int $partNumber, string $uploadId, string $contents, Config $config): array
+    public function uploadPart(string $path, int $partNumber, string $uploadId, string $contents, Config $config): array
     {
         $prefixedPath = $this->prefixer->prefixPath($path);
         $response     = $this->getObjectClient()->uploadPart($prefixedPath, $partNumber, $uploadId, $contents, $config->get('headers', []));
@@ -537,7 +537,7 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
      * @return array
      * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
      */
-    public function markUploadAsCompleted (string $path, string $uploadId, array $body): array
+    public function markUploadAsCompleted(string $path, string $uploadId, array $body): array
     {
         $prefixedPath = $this->prefixer->prefixPath($path);
         $response     = $this->getObjectClient()->markUploadAsCompleted($prefixedPath, $uploadId, $body);
