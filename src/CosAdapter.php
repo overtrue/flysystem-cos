@@ -483,4 +483,68 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             default => 'default',
         };
     }
+
+    /**
+     * Part Upload - Init Upload
+     *
+     * @param string $path
+     * @param Config $config
+     *
+     * @return array
+     * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     */
+    public function createUploadId(string $path, Config $config): array
+    {
+        $prefixedPath = $this->prefixer->prefixPath($path);
+        $response     = $this->getObjectClient()->createUploadId($prefixedPath, $config->get('headers', []));
+
+        if (!$response->isSuccessful()) {
+            throw new \Exception("Init Part Upload Failed! ");
+        }
+
+        return Transformer::toArray($response->getBody());
+    }
+
+    /**
+     * Part Upload - Upload Part
+     *
+     * @param string $path
+     * @param int    $partNumber
+     * @param string $uploadId
+     * @param string $contents
+     * @param Config $config
+     *
+     * @return array
+     * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     */
+    public function uploadPart(string $path, int $partNumber, string $uploadId, string $contents, Config $config): array
+    {
+        $prefixedPath = $this->prefixer->prefixPath($path);
+        $response     = $this->getObjectClient()->uploadPart($prefixedPath, $partNumber, $uploadId, $contents, $config->get('headers', []));
+        if (!$response->isSuccessful()) {
+            throw new \Exception("Part Upload Failed!");
+        }
+        return $response->getHeaders();
+    }
+
+    /**
+     * Part Upload - Complete Upload
+     *
+     * @param string $path
+     * @param string $uploadId
+     * @param array  $body
+     *
+     * @return array
+     * @throws \Overtrue\CosClient\Exceptions\InvalidConfigException
+     */
+    public function markUploadAsCompleted(string $path, string $uploadId, array $body): array
+    {
+        $prefixedPath = $this->prefixer->prefixPath($path);
+        $response     = $this->getObjectClient()->markUploadAsCompleted($prefixedPath, $uploadId, $body);
+        if (!$response->isSuccessful()) {
+            throw new \Exception("Complete Part Upload Failed!");
+        }
+
+        return Transformer::toArray($response->getBody());
+    }
 }
