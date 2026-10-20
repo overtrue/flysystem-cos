@@ -413,7 +413,9 @@ class CosAdapter implements FilesystemAdapter, TemporaryUrlGenerator
             $this->config['bucket'],
             $this->config['app_id'],
             $this->config['region'],
-            $path
+            // COS requires the key in x-cos-copy-source to be URL-encoded. "~" is encoded too,
+            // otherwise the signer (RFC 1738) and COS (RFC 3986) disagree on it.
+            \str_replace(['%2F', '~'], ['/', '%7E'], \rawurlencode($path))
         );
     }
 
